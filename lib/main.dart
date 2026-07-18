@@ -4,6 +4,7 @@ import 'pages/dashboard_page.dart';
 import 'pages/laporan_page.dart';
 import 'pages/pengaturan_page.dart';
 import 'pages/transaksi_page.dart';
+import 'pages/keuntungan_page.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await initializeDateFormatting('id_ID', null);
@@ -40,6 +41,7 @@ class _MainPageState extends State<MainPage> {
   final List<Widget> _pages = const [
     DashboardPage(),
     TransaksiPage(),
+    KeuntunganPage(),
     LaporanPage(),
     PengaturanPage(),
   ];
@@ -58,6 +60,7 @@ class _MainPageState extends State<MainPage> {
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedIndex,
         onDestinationSelected: _onTabTapped,
+        labelBehavior: NavigationDestinationLabelBehavior.onlyShowSelected,
         destinations: const [
           NavigationDestination(
             icon: Icon(Icons.dashboard_outlined),
@@ -68,6 +71,11 @@ class _MainPageState extends State<MainPage> {
             icon: Icon(Icons.receipt_long_outlined),
             selectedIcon: Icon(Icons.receipt_long),
             label: 'Buku Kas',
+          ),
+           NavigationDestination(
+            icon: Icon(Icons.trending_up_outlined),
+            selectedIcon: Icon(Icons.trending_up),
+            label: 'Keuntungan',
           ),
           NavigationDestination(
             icon: Icon(Icons.bar_chart_outlined),

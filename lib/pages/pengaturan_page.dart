@@ -2,6 +2,10 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../services/backup_service.dart';
+import '../services/keuntungan_service.dart';
+import '../services/transaksi_service.dart';
+import '../services/pdf_service.dart';
+import '../models/transaksi.dart';
 
 class PengaturanPage extends StatefulWidget {
   const PengaturanPage({super.key});
@@ -13,6 +17,13 @@ class PengaturanPage extends StatefulWidget {
 class _PengaturanPageState extends State<PengaturanPage> {
   final _backupService = BackupService();
   final _formatTanggal = DateFormat('d MMM yyyy, HH:mm', 'id_ID');
+  final _transaksiService = TransaksiService();
+  final _keuntunganService = KeuntunganService();
+  final _pdfService = PdfService();
+
+  DateTime _dariTanggal = DateTime(DateTime.now().year, DateTime.now().month, 1);
+  DateTime _sampaiTanggal = DateTime(DateTime.now().year, DateTime.now().month + 1, 0);
+  bool _isExporting = false;
 
   bool _isBackingUp = false;
   bool _isRestoring = false;
@@ -122,7 +133,59 @@ class _PengaturanPageState extends State<PengaturanPage> {
     await _backupService.hapusBackup(path);
     _loadDaftarBackup();
   }
+  Future<void> _exportPdf({required String sumber}) async {
+    setState(() => _isExporting = true);
+    try {
+      final dari = DateFormat('yyyy-MM-dd').format(_dariTanggal);
+      final sampai = DateFormat('yyyy-MM-dd').format(_sampaiTanggal);
 
+      List<Transaksi> transaksi = [];
+      if (sumber == 'dashboard') {
+        transaksi = await _transaksiService.getTransaksiByRentangTanggal(
+          dari: dari,
+          sampai: sampai,
+        );
+      } else {
+        final semua = await _keuntunganService.getSemuaKeuntungan();
+        transaksi = semua.where((t) {
+          return t.tanggal.compareTo(dari) >= 0 &&
+              t.tanggal.compareTo(sampai) <= 0;
+        }).toList();
+      }
+
+      await _pdfService.exportLaporan(
+        transaksi: transaksi,
+        dari: _dariTanggal,
+        sampai: _sampaiTanggal,
+        judul: sumber == 'dashboard' ? 'Laporan Buku Kas' : 'Laporan Keuntungan',
+      );
+    } catch (e) {
+      if (!mounted) return;
+      _showSnackBar('Export gagal: $e', berhasil: false);
+    } finally {
+      if (mounted) setState(() => _isExporting = false);
+    }
+  }
+
+Future<void> _pilihTanggal({required bool isDari}) async {
+  final picked = await showDatePicker(
+    context: context,
+    initialDate: isDari ? _dariTanggal : _sampaiTanggal,
+    firstDate: DateTime(2000),
+    lastDate: DateTime(2100),
+  );
+  if (picked != null) {
+    setState(() {
+      if (isDari) {
+        _dariTanggal = picked;
+        if (_dariTanggal.isAfter(_sampaiTanggal)) _sampaiTanggal = picked;
+      } else {
+        _sampaiTanggal = picked;
+        if (_sampaiTanggal.isBefore(_dariTanggal)) _dariTanggal = picked;
+      }
+    });
+  }
+}
   void _showSnackBar(String pesan, {required bool berhasil}) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -338,7 +401,113 @@ class _PengaturanPageState extends State<PengaturanPage> {
                       ),
                     ),
 
-          const SizedBox(height: 24),
+                const SizedBox(height: 24),
+                // ── SECTION EXPORT PDF ────────────────────
+      _buildSectionHeader('Export PDF'),
+      const SizedBox(height: 12),
+
+      Card(
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: colorScheme.outlineVariant),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.red.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(
+                      Icons.picture_as_pdf_outlined,
+                      color: Colors.red,
+                      size: 22,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  const Text(
+                    'Export ke PDF',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 15,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildTombolTanggalPdf(
+                      label: 'Dari',
+                      tanggal: _dariTanggal,
+                      onTap: () => _pilihTanggal(isDari: true),
+                    ),
+                  ),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 8),
+                    child: Text('—'),
+                  ),
+                  Expanded(
+                    child: _buildTombolTanggalPdf(
+                      label: 'Sampai',
+                      tanggal: _sampaiTanggal,
+                      onTap: () => _pilihTanggal(isDari: false),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: _isExporting
+                          ? null
+                          : () => _exportPdf(sumber: 'dashboard'),
+                      icon: const Icon(Icons.receipt_long_outlined, size: 18),
+                      label: const Text('Buku Kas'),
+                      style: OutlinedButton.styleFrom(
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: _isExporting
+                          ? null
+                          : () => _exportPdf(sumber: 'keuntungan'),
+                      icon: const Icon(Icons.trending_up_outlined, size: 18),
+                      label: const Text('Keuntungan'),
+                      style: OutlinedButton.styleFrom(
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              if (_isExporting)
+                const Padding(
+                  padding: EdgeInsets.only(top: 12),
+                  child: Center(child: CircularProgressIndicator()),
+                ),
+            ],
+          ),
+        ),
+      ),
+const SizedBox(height: 24),
 
           _buildSectionHeader('Informasi'),
           const SizedBox(height: 12),
@@ -402,6 +571,46 @@ class _PengaturanPageState extends State<PengaturanPage> {
         style: TextStyle(
           fontSize: 13,
           color: Theme.of(context).colorScheme.onSurfaceVariant,
+        ),
+      ),
+    );
+  }
+  Widget _buildTombolTanggalPdf({
+    required String label,
+    required DateTime tanggal,
+    required VoidCallback onTap,
+  }) {
+    final format = DateFormat('d MMM yyyy', 'id_ID');
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          border: Border.all(
+            color: Theme.of(context).colorScheme.outlineVariant,
+          ),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 11,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              format.format(tanggal),
+              style: const TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 13,
+              ),
+            ),
+          ],
         ),
       ),
     );
