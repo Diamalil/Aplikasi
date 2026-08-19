@@ -20,7 +20,7 @@ class PdfService {
   }) async {
     final pdf = pw.Document();
 
-    // Hitung total
+  
     final totalMasuk = transaksi
         .where((t) => t.jenis == 'Masuk')
         .fold(0.0, (sum, t) => sum + t.nominal);
@@ -37,7 +37,7 @@ class PdfService {
         pageFormat: PdfPageFormat.a4,
         margin: const pw.EdgeInsets.all(32),
         build: (context) => [
-          // ── HEADER ────────────────────────────────
+        
           pw.Container(
             padding: const pw.EdgeInsets.all(16),
             decoration: pw.BoxDecoration(
@@ -76,7 +76,7 @@ class PdfService {
 
           pw.SizedBox(height: 16),
 
-          // ── REKAP ──────────────────────────────────
+        
           pw.Container(
             padding: const pw.EdgeInsets.all(12),
             decoration: pw.BoxDecoration(
@@ -101,7 +101,7 @@ class PdfService {
 
           pw.SizedBox(height: 16),
 
-          // ── TABEL TRANSAKSI ────────────────────────
+       
           pw.Text(
             'Detail Transaksi (${transaksi.length})',
             style: pw.TextStyle(
@@ -127,7 +127,7 @@ class PdfService {
                     3: const pw.FlexColumnWidth(2.5),
                   },
                   children: [
-                    // Header tabel
+            
                     pw.TableRow(
                       decoration: const pw.BoxDecoration(
                         color: PdfColors.grey200,
@@ -139,7 +139,7 @@ class PdfService {
                         _buildCellHeader('Nominal'),
                       ],
                     ),
-                    // Baris data
+          
                     ...transaksi.map((t) {
                       final isMasuk = t.jenis == 'Masuk';
                       return pw.TableRow(
@@ -170,7 +170,7 @@ class PdfService {
       ),
     );
 
-    // Tampilkan preview PDF — user bisa share/print/save dari sini
+  
     await Printing.layoutPdf(
       onLayout: (format) async => pdf.save(),
       name: '$judul - $periodeText.pdf',
