@@ -53,7 +53,7 @@ class _MainPageState extends State<MainPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: IndexedStack(  // Lebih efisien daripada rebuild semua halaman
+      body: IndexedStack( 
         index: _selectedIndex,
         children: _pages,
       ),
